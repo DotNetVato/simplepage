@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ASP.NET Core with Serilog: UseSerilog vs AddSerilog</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f5f5f7;
+            color: #222;
+        }
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 2rem 2.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+        }
+        h1, h2, h3 {
+            font-weight: 600;
+            color: #111827;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 1.9rem;
+        }
+        h2 {
+            margin-top: 2rem;
+            font-size: 1.4rem;
+        }
+        h3 {
+            margin-top: 1.4rem;
+            font-size: 1.15rem;
+        }
+        p {
+            margin: 0.4rem 0 0.7rem;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: #f3f4f6;
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        pre {
+            background: #0b1020;
+            color: #f9fafb;
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+        pre code {
+            background: transparent;
+            padding: 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem 0.6rem;
+            text-align: left;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-yes {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        .badge-no {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .badge-maybe {
+            background-color: #fef9c3;
+            color: #854d0e;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 2rem 0;
+        }
+        .highlight {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+        .highlight strong {
+            font-weight: 600;
+        }
+        @media (max-width: 700px) {
+            body {
+                padding: 1rem;
+            }
+            main {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>ASP.NET Core with Serilog: <code>UseSerilog()</code> vs <code>AddSerilog()</code></h1>
+
+    <div class="highlight">
+        <p><strong>Direct answer:</strong> You only need <code>UseSerilog()</code> for an ASP.NET Core app using Serilog. You do <strong>not</strong> need to call both <code>UseSerilog()</code> and <code>AddSerilog()</code>; using both is redundant, and <code>AddSerilog()</code> is rarely appropriate in a typical ASP.NET Core web app.</p>
+    </div>
+
+    <hr>
+
+    <h2>The two Serilog integration paths</h2>
+
+    <p>ASP.NET Core has evolved through different hosting models, and Serilog provides hooks for each. Which method you use depends on the hosting style of your app, but in ASP.NET Core web apps, <code>UseSerilog()</code> is the one you want.</p>
+
+    <h3>1. Minimal hosting model (ASP.NET Core 6+)</h3>
+
+    <p>This is the modern style that starts with:</p>
+    <pre><code>var builder = WebApplication.CreateBuilder(args);</code></pre>
+
+    <p>In this model, the correct integration point is:</p>
+    <ul>
+        <li><strong>Use:</strong> <code>builder.Host.UseSerilog()</code> to replace the built-in logging with Serilog.</li>
+        <li><strong>Do not use:</strong> <code>builder.AddSerilog()</code> — that method is not for this pattern.</li>
+    </ul>
+
+    <p>Typical setup:</p>
+    <pre><code>using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateLogger();
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog(); // &lt;-- correct for minimal hosting
+
+var app = builder.Build();
+
+app.MapGet("/", () =&gt; "Hello, world!");
+
+app.Run();</code></pre>
+
+    <p>Here, <code>UseSerilog()</code> tells the host to use Serilog as the logging provider throughout the app, including during startup.</p>
+
+    <h3>2. Generic host / WebHostBuilder (ASP.NET Core 3.1–5)</h3>
+
+    <p>For older-style apps using <code>Host.CreateDefaultBuilder</code> or <code>WebHost.CreateDefaultBuilder</code>, Serilog plugs in the same way: via <code>UseSerilog()</code>.</p>
+
+    <pre><code>using Serilog;
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .CreateLogger();
+
+        CreateHostBuilder(args).Build().Run();
+    }
+
+    public static IHostBuilder CreateHostBuilder(string[] args) =&gt;
+        Host.CreateDefaultBuilder(args)
+            .UseSerilog() // &lt;-- correct for generic host too
+            .ConfigureWebHostDefaults(webBuilder =&gt;
+            {
+                webBuilder.UseStartup&lt;Startup&gt;();
+            });
+}</code></pre>
+
+    <p>Again, <code>UseSerilog()</code> replaces the default logging providers with Serilog for the entire host.</p>
+
+    <hr>
+
+    <h2>What is <code>AddSerilog()</code> actually for?</h2>
+
+    <p><code>AddSerilog()</code> comes from the Microsoft.Extensions.Logging integration for Serilog. It is used when you want to <strong>add Serilog as a logging provider</strong> into an existing logging system instead of completely replacing that system.</p>
+
+    <p>Typical scenarios where <code>AddSerilog()</code> can make sense:</p>
+    <ul>
+        <li><strong>Console apps</strong> that already use <code>ILogger&lt;T&gt;</code> and the default logging.</li>
+        <li><strong>Worker services</strong> or generic hosts where you want multiple providers side-by-side.</li>
+        <li><strong>Legacy or mixed setups</strong> where some logs go to Serilog and others stick with built-in providers.</li>
+    </ul>
+
+    <p>Example (non-ASP.NET Core typical console app):</p>
+    <pre><code>using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Serilog;
+
+var services = new ServiceCollection();
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateLogger();
+
+services.AddLogging(lb =&gt;
+{
+    lb.ClearProviders();
+    lb.AddSerilog(); // adding Serilog as a provider
+});
+
+var provider = services.BuildServiceProvider();
+
+var logger = provider.GetRequiredService&lt;ILogger&lt;Program&gt;&gt;();
+logger.LogInformation("Hello from a console app!");</code></pre>
+
+    <p>In ASP.NET Core web apps, though, adding Serilog as just another provider is almost never what you want; you generally want Serilog to be the main, structured logging pipeline.</p>
+
+    <hr>
+
+    <h2>Comparison summary</h2>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Scenario</th>
+            <th>Use <code>UseSerilog()</code>?</th>
+            <th>Use <code>AddSerilog()</code>?</th>
+            <th>Notes</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>ASP.NET Core 6+ minimal hosting web app</td>
+            <td><span class="badge badge-yes">Yes</span></td>
+            <td><span class="badge badge-no">No</span></td>
+            <td>Standard, recommended integration: <code>builder.Host.UseSerilog()</code>.</td>
+        </tr>
+        <tr>
+            <td>ASP.NET Core 3.1–5 web app (generic host)</td>
+            <td><span class="badge badge-yes">Yes</span></td>
+            <td><span class="badge badge-no">Rare</span></td>
+            <td>Use <code>Host.CreateDefaultBuilder(args).UseSerilog()</code>.</td>
+        </tr>
+        <tr>
+            <td>Console app using <code>ILogger&lt;T&gt;</code></td>
+            <td><span class="badge badge-no">Not required</span></td>
+            <td><span class="badge badge-yes">Yes</span></td>
+            <td>Add Serilog as a provider into the logging builder.</td>
+        </tr>
+        <tr>
+            <td>Worker service / generic host (non-web)</td>
+            <td><span class="badge badge-maybe">Optional</span></td>
+            <td><span class="badge badge-maybe">Maybe</span></td>
+            <td>Depends whether you want Serilog alone (<code>UseSerilog()</code>) or alongside other providers (<code>AddSerilog()</code>).</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>Final takeaway</h2>
+
+    <p>For an ASP.NET Core web application using Serilog, you should:</p>
+    <ul>
+        <li><strong>Use only</strong> <code>UseSerilog()</code> on the host (e.g., <code>builder.Host.UseSerilog()</code> or <code>Host.CreateDefaultBuilder(args).UseSerilog()</code>).</li>
+        <li><strong>Do not</strong> call <code>AddSerilog()</code> in the ASP.NET Core logging builder unless you have a very specific, advanced reason to keep other logging providers alongside Serilog.</li>
+    </ul>
+
+    <p>This keeps your setup clean, predictable, and fully Serilog-driven for structured logging across your app.</p>
+</main>
+</body>
+</html>
